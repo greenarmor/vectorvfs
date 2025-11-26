@@ -14,8 +14,15 @@ def test_require_dependencies_provides_descriptive_error(monkeypatch):
     monkeypatch.setattr(encoders, "_encoder_import_error", ImportError("pe"))
     monkeypatch.setattr(encoders, "_pillow_import_error", ImportError("pillow"))
 
-    with pytest.raises(ImportError, match="PerceptionEncoder requires optional dependencies"):
+    with pytest.raises(ImportError, match="PerceptionEncoder requires optional dependencies") as excinfo:
         encoders._require_dependencies()
+
+    message = str(excinfo.value)
+    # Ensure the guidance lists every missing optional component so users know
+    # exactly which extras to install when the perception stack is unavailable.
+    assert "torch" in message
+    assert "core.vision_encoder" in message
+    assert "Pillow" in message
 
 
 def test_require_torch_provides_descriptive_error(monkeypatch):
