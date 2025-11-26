@@ -1,11 +1,30 @@
 import unittest
 from pathlib import Path
 
-import torch
+try:
+    import torch
+except ImportError:
+    torch = None  # type: ignore[assignment]
+
+try:
+    import core.vision_encoder.pe as pe
+    import core.vision_encoder.transforms as transforms
+except ImportError:
+    pe = None  # type: ignore[assignment]
+    transforms = None  # type: ignore[assignment]
+
+try:
+    from PIL import Image  # noqa: F401
+except ImportError:
+    Image = None  # type: ignore[assignment]
 
 from vectorvfs.encoders import PerceptionEncoder
 
 
+@unittest.skipIf(
+    torch is None or pe is None or transforms is None or Image is None,
+    "Perception encoder dependencies are not installed",
+)
 class TestPerceptionEncoder(unittest.TestCase):
     def setUp(self) -> None:
         self.data_path = Path(__file__).parent / "data"

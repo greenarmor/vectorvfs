@@ -1,8 +1,33 @@
+from __future__ import annotations
+
 import io
 import os
 from pathlib import Path
+from typing import TYPE_CHECKING
 
-import torch
+try:  # Optional dependency
+    import torch
+except ImportError as e:  # pragma: no cover - exercised through runtime checks
+    torch = None  # type: ignore[assignment]
+    _torch_import_error = e
+else:
+    _torch_import_error = None
+
+if TYPE_CHECKING:  # pragma: no cover - type checking only
+    from torch import Tensor
+
+
+def _require_torch() -> None:
+    """Raise an informative error when torch is missing at runtime."""
+
+    if torch is None:
+        message = (
+            "VFSStore requires the optional 'torch' dependency to serialize "
+            "embeddings. Install torch to enable tensor persistence."
+        )
+        if _torch_import_error is not None:
+            raise ImportError(message) from _torch_import_error
+        raise ImportError(message)
 
 
 class XAttrFile:
@@ -48,21 +73,25 @@ class VFSStore:
     def __init__(self, xattrfile: XAttrFile) -> None:
         self.xattrfile = xattrfile
 
-    def _tensor_to_bytes(self, tensor: torch.Tensor) -> bytes:
+    def _tensor_to_bytes(self, tensor: "Tensor") -> bytes:
+        _require_torch()
+        assert torch is not None  # for type checkers
         buffer = io.BytesIO()
         torch.save(tensor, buffer)
         return buffer.getvalue()
-    
-    def _bytes_to_tensor(self, b: bytes, map_location=None) -> torch.Tensor:
+
+    def _bytes_to_tensor(self, b: bytes, map_location=None) -> "Tensor":
+        _require_torch()
+        assert torch is not None  # for type checkers
         buffer = io.BytesIO(b)
         return torch.load(buffer, map_location=map_location, weights_only=True)
 
-    def write_tensor(self, tensor: torch.Tensor) -> int:
+    def write_tensor(self, tensor: "Tensor") -> int:
         btensor = self._tensor_to_bytes(tensor)
         self.xattrfile.write("user.vectorvfs", btensor)
         return len(btensor)
 
-    def read_tensor(self) -> torch.Tensor:
+    def read_tensor(self) -> "Tensor":
         btensor = self.xattrfile.read("user.vectorvfs")
         tensor = self._bytes_to_tensor(btensor)
         return tensor
